@@ -72,20 +72,38 @@ function copyRecursive(src, dst) {
   }
 }
 
-function backupAndCopy(srcDir, dstDir, label) {
+function mergeAndCopy(srcDir, dstDir, label) {
+  // Per-entry merge: only the incoming entries from srcDir overwrite
+  // existing entries with the same name in dstDir. Any other content in
+  // dstDir (user-authored skills/agents not shipped by OMC) is preserved.
+  // Conflicting entries are backed up under `<dstDir>.backup-<ts>/`.
   if (!fs.existsSync(srcDir)) {
     console.log(`(skip ${label}: ${srcDir} not found — run port-omc.cjs first)`);
     return 0;
   }
-  if (fs.existsSync(dstDir) && fs.readdirSync(dstDir).length > 0) {
+  if (!fs.existsSync(dstDir)) fs.mkdirSync(dstDir, { recursive: true });
+
+  const incoming = fs.readdirSync(srcDir);
+  const overwriting = incoming.filter(n => fs.existsSync(path.join(dstDir, n)));
+
+  if (overwriting.length > 0) {
     const bk = `${dstDir}.backup-${ts()}`;
-    fs.renameSync(dstDir, bk);
-    console.log(`  ↳ backed up existing ${label} → ${bk}`);
+    fs.mkdirSync(bk, { recursive: true });
+    for (const name of overwriting) {
+      copyRecursive(path.join(dstDir, name), path.join(bk, name));
+    }
+    console.log(`  ↳ backed up ${overwriting.length} conflicting ${label} → ${bk}`);
   }
-  copyRecursive(srcDir, dstDir);
-  const count = fs.readdirSync(dstDir).length;
-  console.log(`Applied ${count} ${label} → ${dstDir}`);
-  return count;
+
+  for (const name of incoming) {
+    const dst = path.join(dstDir, name);
+    if (fs.existsSync(dst)) fs.rmSync(dst, { recursive: true, force: true });
+    copyRecursive(path.join(srcDir, name), dst);
+  }
+
+  const added = incoming.length - overwriting.length;
+  console.log(`Applied ${incoming.length} ${label} → ${dstDir} (${overwriting.length} overwritten, ${added} added, user content preserved)`);
+  return incoming.length;
 }
 
 /**
@@ -145,8 +163,8 @@ function main() {
   console.log(`Target: ${target}`);
   console.log(`Porter root: ${PORTER_ROOT}\n`);
 
-  backupAndCopy(path.join(OUT_DIR, 'skills'), path.join(target, 'skills'), 'skills');
-  backupAndCopy(path.join(OUT_DIR, 'agents'), path.join(target, 'agents'), 'agents');
+  mergeAndCopy(path.join(OUT_DIR, 'skills'), path.join(target, 'skills'), 'skills');
+  mergeAndCopy(path.join(OUT_DIR, 'agents'), path.join(target, 'agents'), 'agents');
   mergeSettings(target);
 
   console.log('\nDone. Restart your IDE / CLI to pick up the new hooks and skills.');
