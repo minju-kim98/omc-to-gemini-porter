@@ -64,7 +64,7 @@ This is the canonical OMC distribution. The porter calls its scripts unchanged.
 ### 2. Clone this repo
 
 ```bash
-git clone https://github.com/<your-account>/omc-to-gemini-porter.git
+git clone https://github.com/minju-kim98/omc-to-gemini-porter.git
 cd omc-to-gemini-porter
 ```
 
