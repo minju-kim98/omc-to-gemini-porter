@@ -1,0 +1,96 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "omc-session-start",
+            "type": "command",
+            "command": "node \"./shims/session-start.cjs\"",
+            "timeout": 60000
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "omc-before-agent",
+            "type": "command",
+            "command": "node \"./shims/before-agent.cjs\"",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "omc-before-tool",
+            "type": "command",
+            "command": "node \"./shims/before-tool.cjs\"",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "omc-after-tool",
+            "type": "command",
+            "command": "node \"./shims/after-tool.cjs\"",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "omc-persistent-mode",
+            "type": "command",
+            "command": "node \"./shims/after-agent.cjs\"",
+            "timeout": 15000,
+            "description": "OMC Stop -> AfterAgent: ralph/autopilot/ultrawork auto-loop engine"
+          }
+        ]
+      }
+    ],
+    "PreCompress": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "omc-pre-compress",
+            "type": "command",
+            "command": "node \"./shims/pre-compress.cjs\"",
+            "timeout": 15000
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "omc-session-end",
+            "type": "command",
+            "command": "node \"./shims/session-end.cjs\"",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}
