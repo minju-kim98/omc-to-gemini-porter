@@ -6,21 +6,63 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/status-archived-lightgrey.svg" alt="Archived">
   <img src="https://img.shields.io/badge/node-%E2%89%A520-43853d.svg" alt="Node 20+">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
   <img src="https://img.shields.io/badge/built%20on-OMC-orange.svg" alt="Built on OMC">
   <img src="https://img.shields.io/badge/runtime-Gemini%20CLI-4285f4.svg" alt="Gemini CLI">
 </p>
 
-<p align="center">
-  <a href="#-overview">Overview</a> ·
-  <a href="#-quick-start">Quick start</a> ·
-  <a href="#-architecture">Architecture</a> ·
-  <a href="#-configuration">Configuration</a> ·
-  <a href="#-updating-omc">Updating OMC</a> ·
-  <a href="#-troubleshooting">Troubleshooting</a> ·
-  <a href="#-credits">Credits</a>
-</p>
+---
+
+> [!WARNING]
+> **This project is archived. If your environment is Codex-based, you do not need it.**
+>
+> OMC now ships **native Codex support** and is distributed through Codex's
+> plugin marketplace system. Codex consumes OMC's *unmodified* Claude Code
+> `hooks/hooks.json` directly — the stdin/stdout translation this porter exists
+> to provide is not needed there.
+>
+> This repo remains useful only for **Gemini CLI**-based hosts, which have no
+> such native path. It is no longer maintained.
+
+## Migrating to a Codex-based host
+
+Codex's hook contract *is* the Claude Code hook contract — same event names
+(`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`,
+`SubagentStop`, `PreCompact`, `Notification`), same payload fields, same
+`$CLAUDE_PLUGIN_ROOT` expansion. No shim, no frontmatter rewriting, no
+`agent_run` substitution.
+
+Install OMC as a plugin instead:
+
+```toml
+# $CODEX_HOME/config.toml
+[marketplaces.omc]
+source_type = "git"
+source = "https://github.com/Yeachan-Heo/oh-my-claudecode.git"
+
+[plugins."oh-my-claudecode@omc"]
+enabled = true
+```
+
+`$CODEX_HOME` defaults to `~/.codex`; vendor forks override it (e.g. a fork
+may use `~/.ditcode`). Check which directory the host actually writes
+`config.toml` and `sessions/` into.
+
+### Two gotchas that cost us a debugging cycle
+
+1. **Hooks are gated behind a trust hash.** Codex records every approved hook
+   in `config.toml` as
+   `[hooks.state.'<path>:<event>:<idx>:<idx>'] trusted_hash = "sha256:…"`.
+   A syntactically valid `hooks.json` that has not been trusted is **silently
+   ignored** — no error, no log. If your hooks appear dead, check this first.
+2. **Hook `timeout` is in seconds**, not milliseconds as in Gemini's
+   `settings.json`.
+
+`probe/` contains the instrumentation used to establish the above; see
+`probe/install-probe.cjs`. Note that it is subject to gotcha #1 — an installed
+probe stays silent until its hash is trusted.
 
 ---
 
