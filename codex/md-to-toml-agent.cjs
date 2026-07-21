@@ -15,15 +15,21 @@
  * inside the plugin but never surface.
  *
  * The fix is to materialise them as user-level subagents. The Codex fork reads
- * subagents from `$CODEX_HOME/agents/<name>.toml` with this schema (confirmed
- * from the codex-app-server binary + the subagent editor UI):
+ * subagents from `$CODEX_HOME/agents/<name>.toml`. Ground-truth schema, captured
+ * from a file the fork's own "Global SubAgent 추가" editor wrote (its
+ * `AgentRoleToml` loader rejects anything else):
  *
- *   name                    string
- *   description             string
- *   developer_instructions  string   <- the agent prompt (the .md body)
- *   model                   string   (empty = host default)
- *   reasoning_effort        string   (empty = host default)
- *   nickname_candidates     string[]
+ *   name                    string   (required)
+ *   description             string   (required)
+ *   developer_instructions  string   (required) <- the agent prompt (.md body)
+ *   nickname_candidates     string[] (optional; written only when non-empty)
+ *
+ * CRUCIALLY: `model` and `reasoning_effort` are NOT emitted. In the editor they
+ * default to 상속 / "inherit", and the server then OMITS the keys entirely — it
+ * does not write them as empty strings. Writing `reasoning_effort = ""` makes
+ * the loader reject the whole file with `unknown field 'reasoning_effort'` and
+ * the subagent silently vanishes. Leave both out so the host inherits; a user
+ * can still pin a model per-agent in the editor afterwards.
  *
  * Note this is a DIFFERENT schema from the old Gemini fork, which used .md with
  * `kind`/`tools`/`max_turns`/`timeout_mins` frontmatter (see port-omc.cjs).
@@ -82,15 +88,14 @@ function convert(file) {
   const name = fm.name || path.basename(file, '.md');
   const desc = fm.description || '';
 
+  // Only the three required keys, mirroring what the editor writes. `model` and
+  // `reasoning_effort` are intentionally omitted (see header) so the host
+  // inherits; OMC's own model routing still applies when the agent runs through
+  // the plugin. Blank line before developer_instructions matches the editor.
   const lines = [
     `name = ${tomlBasic(name)}`,
     `description = ${tomlBasic(desc)}`,
-    // Left empty so the host applies its own default model/effort. OMC's own
-    // model routing (haiku/sonnet/opus) still applies once the agent runs
-    // through the plugin, so pinning here would only fight it.
-    `model = ""`,
-    `reasoning_effort = ""`,
-    `nickname_candidates = []`,
+    '',
     `developer_instructions = ${tomlMultiline(body)}`,
     '',
   ];

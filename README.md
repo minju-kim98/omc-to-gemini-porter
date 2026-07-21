@@ -79,20 +79,27 @@ carries the subagent converter for gotcha #3.
 
 ### Materialising subagents (gotcha #3)
 
-The Codex subagent `.toml` schema (from the `codex-app-server` binary and the
-subagent editor UI):
+The Codex subagent `.toml` schema — captured from a file the fork's own
+subagent editor wrote, which is the only reliable source (its `AgentRoleToml`
+loader rejects unknown fields):
 
 ```toml
 # $CODEX_HOME/agents/<name>.toml
 name = "explore"
 description = "Codebase search specialist for finding files and code patterns"
-model = ""              # empty = host default; OMC's own routing still applies
-reasoning_effort = ""
-nickname_candidates = []
+
 developer_instructions = '''
 <the agent prompt — i.e. the OMC agent .md body>
 '''
 ```
+
+Only those three keys. **Do not emit `model` or `reasoning_effort`**: in the
+editor they default to *inherit*, and the server then omits the keys entirely
+rather than writing them empty. A stray `reasoning_effort = ""` makes the
+loader reject the whole file (`unknown field 'reasoning_effort'`) and the
+subagent silently disappears — no error in the UI, only in the app log. Leave
+both out to inherit; pin a model per-agent in the editor later if you want.
+`nickname_candidates = ["…"]` is accepted but optional.
 
 Convert OMC's shipped agent `.md` files into it:
 
