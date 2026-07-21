@@ -50,19 +50,60 @@ enabled = true
 may use `~/.ditcode`). Check which directory the host actually writes
 `config.toml` and `sessions/` into.
 
-### Two gotchas that cost us a debugging cycle
+### Three gotchas that cost us a debugging cycle
 
 1. **Hooks are gated behind a trust hash.** Codex records every approved hook
    in `config.toml` as
    `[hooks.state.'<path>:<event>:<idx>:<idx>'] trusted_hash = "sha256:…"`.
    A syntactically valid `hooks.json` that has not been trusted is **silently
    ignored** — no error, no log. If your hooks appear dead, check this first.
+   The trust keys for a plugin's hooks are plugin-relative
+   (`oh-my-claudecode@omc:hooks/hooks.json:stop:0:0`), so they carry across
+   `CODEX_HOME`s unchanged — but they are keyed on `hooks.json` *content*, so
+   a plugin update that changes `hooks.json` invalidates them and the hooks go
+   silent again until re-approved.
 2. **Hook `timeout` is in seconds**, not milliseconds as in Gemini's
    `settings.json`.
+3. **Subagents are NOT auto-registered from the plugin.** Enabling the plugin
+   surfaces skills, hooks and the `t` MCP server, but not OMC's agents. OMC's
+   `plugin.json` declares `skills`/`mcpServers`/`commands` and has no `agents`
+   key; Claude Code auto-discovers the `agents/` directory by convention,
+   Codex's plugin loader does not. You must materialise them as user-level
+   subagents at `$CODEX_HOME/agents/<name>.toml` (a different schema from the
+   old Gemini fork's `.md` agents) — see [`codex/`](codex/).
 
-`probe/` contains the instrumentation used to establish the above; see
-`probe/install-probe.cjs`. Note that it is subject to gotcha #1 — an installed
-probe stays silent until its hash is trusted.
+`probe/` contains the instrumentation used to establish gotchas #1–#2; see
+`probe/install-probe.cjs`. Note that it is itself subject to gotcha #1 — an
+installed probe stays silent until its hash is trusted. [`codex/`](codex/)
+carries the subagent converter for gotcha #3.
+
+### Materialising subagents (gotcha #3)
+
+The Codex subagent `.toml` schema (from the `codex-app-server` binary and the
+subagent editor UI):
+
+```toml
+# $CODEX_HOME/agents/<name>.toml
+name = "explore"
+description = "Codebase search specialist for finding files and code patterns"
+model = ""              # empty = host default; OMC's own routing still applies
+reasoning_effort = ""
+nickname_candidates = []
+developer_instructions = '''
+<the agent prompt — i.e. the OMC agent .md body>
+'''
+```
+
+Convert OMC's shipped agent `.md` files into it:
+
+```bash
+node codex/md-to-toml-agent.cjs \
+  "$CODEX_HOME/plugins/cache/omc/oh-my-claudecode/<ver>/agents" \
+  "$CODEX_HOME/agents"
+```
+
+Re-run after any plugin update so the subagents track the version whose skills
+and hooks you are running.
 
 ---
 
