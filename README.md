@@ -6,21 +6,120 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/status-archived-lightgrey.svg" alt="Archived">
   <img src="https://img.shields.io/badge/node-%E2%89%A520-43853d.svg" alt="Node 20+">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
   <img src="https://img.shields.io/badge/built%20on-OMC-orange.svg" alt="Built on OMC">
   <img src="https://img.shields.io/badge/runtime-Gemini%20CLI-4285f4.svg" alt="Gemini CLI">
 </p>
 
-<p align="center">
-  <a href="#-overview">Overview</a> ·
-  <a href="#-quick-start">Quick start</a> ·
-  <a href="#-architecture">Architecture</a> ·
-  <a href="#-configuration">Configuration</a> ·
-  <a href="#-updating-omc">Updating OMC</a> ·
-  <a href="#-troubleshooting">Troubleshooting</a> ·
-  <a href="#-credits">Credits</a>
-</p>
+---
+
+> [!WARNING]
+> **This project is archived. If your environment is Codex-based, you do not need it.**
+>
+> OMC now ships **native Codex support** and is distributed through Codex's
+> plugin marketplace system. Codex consumes OMC's *unmodified* Claude Code
+> `hooks/hooks.json` directly — the stdin/stdout translation this porter exists
+> to provide is not needed there.
+>
+> This repo remains useful only for **Gemini CLI**-based hosts, which have no
+> such native path. It is no longer maintained.
+
+## Migrating to a Codex-based host
+
+Codex's hook contract *is* the Claude Code hook contract — same event names
+(`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`,
+`SubagentStop`, `PreCompact`, `Notification`), same payload fields, same
+`$CLAUDE_PLUGIN_ROOT` expansion. No shim, no frontmatter rewriting, no
+`agent_run` substitution.
+
+Install OMC as a plugin instead:
+
+```toml
+# $CODEX_HOME/config.toml
+[marketplaces.omc]
+source_type = "git"
+source = "https://github.com/Yeachan-Heo/oh-my-claudecode.git"
+
+[plugins."oh-my-claudecode@omc"]
+enabled = true
+```
+
+`$CODEX_HOME` defaults to `~/.codex`; vendor forks override it (e.g. a fork
+may use `~/.ditcode`). Check which directory the host actually writes
+`config.toml` and `sessions/` into.
+
+### Three gotchas that cost us a debugging cycle
+
+1. **Hooks are gated behind a trust hash.** Codex records every approved hook
+   in `config.toml` as
+   `[hooks.state.'<path>:<event>:<idx>:<idx>'] trusted_hash = "sha256:…"`.
+   A syntactically valid `hooks.json` that has not been trusted is **silently
+   ignored** — no error, no log. If your hooks appear dead, check this first.
+   The trust keys for a plugin's hooks are plugin-relative
+   (`oh-my-claudecode@omc:hooks/hooks.json:stop:0:0`), so they carry across
+   `CODEX_HOME`s unchanged — but they are keyed on `hooks.json` *content*, so
+   a plugin update that changes `hooks.json` invalidates them and the hooks go
+   silent again until re-approved.
+2. **Hook `timeout` is in seconds**, not milliseconds as in Gemini's
+   `settings.json`.
+3. **Subagents are NOT auto-registered from the plugin.** Enabling the plugin
+   surfaces skills, hooks and the `t` MCP server, but not OMC's agents. OMC's
+   `plugin.json` declares `skills`/`mcpServers`/`commands` and has no `agents`
+   key; Claude Code auto-discovers the `agents/` directory by convention,
+   Codex's plugin loader does not. You must materialise them as user-level
+   subagents at `$CODEX_HOME/agents/<name>.toml` (a different schema from the
+   old Gemini fork's `.md` agents) — see [`codex/`](codex/).
+
+`probe/` contains the instrumentation used to establish gotchas #1–#2; see
+`probe/install-probe.cjs`. Note that it is itself subject to gotcha #1 — an
+installed probe stays silent until its hash is trusted. [`codex/`](codex/)
+carries the subagent converter for gotcha #3.
+
+### Materialising subagents (gotcha #3)
+
+The Codex subagent `.toml` schema — captured from a file the fork's own
+subagent editor wrote, which is the only reliable source (its `AgentRoleToml`
+loader rejects unknown fields):
+
+```toml
+# $CODEX_HOME/agents/<name>.toml
+name = "explore"
+description = "Codebase search specialist for finding files and code patterns"
+
+developer_instructions = '''
+<the agent prompt — i.e. the OMC agent .md body>
+'''
+```
+
+Only those three keys. **Do not emit `model` or `reasoning_effort`**: in the
+editor they default to *inherit*, and the server then omits the keys entirely
+rather than writing them empty. A stray `reasoning_effort = ""` makes the
+loader reject the whole file (`unknown field 'reasoning_effort'`) and the
+subagent silently disappears — no error in the UI, only in the app log. Leave
+both out to inherit; pin a model per-agent in the editor later if you want.
+`nickname_candidates = ["…"]` is accepted but optional.
+
+Convert OMC's shipped agent `.md` files into it:
+
+```bash
+node codex/md-to-toml-agent.cjs \
+  "$CODEX_HOME/plugins/cache/omc/oh-my-claudecode/<ver>/agents" \
+  "$CODEX_HOME/agents"
+```
+
+Re-run after any plugin update so the subagents track the version whose skills
+and hooks you are running.
+
+### Updating OMC later
+
+The fork **cannot auto-update** OMC (its bundled git has a build-machine CA
+path, so the startup marketplace refresh fails every launch). Updating is a
+manual, repeatable procedure — placing the new version dir, repointing the
+marketplace revision, and only re-doing hook trust / subagents if those files
+actually changed between versions. The full runbook with commands is in
+[`codex/UPDATING.md`](codex/UPDATING.md).
 
 ---
 

@@ -13,6 +13,13 @@ output/
 # Test scratch dirs created during PoC verification
 test-tmp-*/
 
+# Probe capture log (probe/hook-probe.cjs) — may contain prompt text
+.scratch/
+
+# Local tool state, not project content
+.codegraph/
+.omc/
+
 # apply.cjs creates timestamped backups when it overwrites existing config
 *.backup-*
 
