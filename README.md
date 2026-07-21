@@ -112,6 +112,15 @@ node codex/md-to-toml-agent.cjs \
 Re-run after any plugin update so the subagents track the version whose skills
 and hooks you are running.
 
+### Updating OMC later
+
+The fork **cannot auto-update** OMC (its bundled git has a build-machine CA
+path, so the startup marketplace refresh fails every launch). Updating is a
+manual, repeatable procedure — placing the new version dir, repointing the
+marketplace revision, and only re-doing hook trust / subagents if those files
+actually changed between versions. The full runbook with commands is in
+[`codex/UPDATING.md`](codex/UPDATING.md).
+
 ---
 
 ## Overview
